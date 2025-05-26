@@ -13,7 +13,8 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", "Ти — юридичний помічник. Відповідай лише згідно з базою шпори.")
 
 # Завантаження бази шпори з JSON
-with open("tdp_answers_full_structured.json", "r", encoding="utf-8") as f1, open("tdp_practical_answers.json", "r", encoding="utf-8") as f2 as f:
+with open("tdp_answers_full_structured.json", "r", encoding="utf-8") as f1, \
+     open("tdp_practical_answers.json", "r", encoding="utf-8") as f2:
     answers = json.load(f1)
     practicals = json.load(f2)
     answers.update(practicals)
@@ -113,9 +114,9 @@ async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TY
         index = int(query.data)
         key = keys[index]
         data = answers[key]
-        reply = f"❓ <b>{data['питання']}</b>
+        reply = f"""❓ <b>{data['питання']}</b>
 
-✅ {data['відповідь']}"
+✅ {data['відповідь']}"""
         if data["закони"]:
             reply += "
 
