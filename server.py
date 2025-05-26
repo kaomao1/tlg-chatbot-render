@@ -4,31 +4,37 @@ import openai
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, ContextTypes, filters
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Новый клиент OpenAI
+client = openai.OpenAI()
+
+# Загружаем промпт из переменной окружения
 SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", "Ти — юрист. Відповідай тільки по шпорі.")
 
+# Логгирование
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Обработчик сообщений Telegram
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     logger.info(f"Запрос от пользователя: {user_message}")
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_message}
             ]
         )
-        reply = response['choices'][0]['message']['content']
+        reply = response.choices[0].message.content
         await update.message.reply_text(reply)
 
     except Exception as e:
         logger.error(f"Ошибка при запросе к OpenAI: {e}")
         await update.message.reply_text("Виникла помилка при отриманні відповіді.")
 
+# Запуск Telegram-бота
 if __name__ == '__main__':
     telegram_token = os.getenv("TELEGRAM_TOKEN")
     if not telegram_token:
