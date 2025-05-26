@@ -14,6 +14,9 @@ SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", "Ти — юридичний помі
 with open("tdp_answers_full.json", "r", encoding="utf-8") as f:
     answers = json.load(f)
 
+# Список ключів
+keys = list(answers.keys())
+
 # Налаштування логів
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,7 +24,8 @@ logger = logging.getLogger(__name__)
 # Команда /topics
 async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton(text=key.title(), callback_data=key)] for key in list(answers.keys())[:30]
+        [InlineKeyboardButton(text=keys[i].title(), callback_data=str(i))]
+        for i in range(min(30, len(keys)))
     ]
     markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Оберіть тему з шпори:", reply_markup=markup)
@@ -30,21 +34,23 @@ async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    key = query.data
-    if key in answers:
+    try:
+        index = int(query.data)
+        key = keys[index]
         data = answers[key]
         reply = f"❓ <b>{data['питання']}</b>\n\n✅ {data['відповідь']}"
         if data["закони"]:
             reply += "\n\n📘 <b>Закон(и):</b> " + "; ".join(data["закони"])
-        await query.message.reply_text(reply, parse_mode="HTML")
+    except (ValueError, IndexError, KeyError):
+        reply = "❗ Помилка при обробці кнопки."
+    await query.message.reply_text(reply, parse_mode="HTML")
 
 # Обробка вхідного повідомлення
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text.lower().strip()
 
     # Пошук найближчого ключа у словнику
-    possible_keys = list(answers.keys())
-    best_match = difflib.get_close_matches(user_message, possible_keys, n=1, cutoff=0.5)
+    best_match = difflib.get_close_matches(user_message, keys, n=1, cutoff=0.5)
 
     if best_match:
         data = answers[best_match[0]]
