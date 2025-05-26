@@ -118,6 +118,7 @@ async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
 ✅ {data['відповідь']}"""
         if data["закони"]:
-            reply += "
+                    if data['закони']:
+            reply += f"
 
-📘 <b>Закон(и):</b> " + "; ".join(data["закони"])
+📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
