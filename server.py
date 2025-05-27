@@ -22,9 +22,31 @@ with open("tdp_answers_full_structured.json", "r", encoding="utf-8") as f1, \
 # Список ключів
 keys = list(answers.keys())
 
+async def laws_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    law_set = set()
+    for value in answers.values():
+        for law in value.get("закони", []):
+            law_set.add(law)
+    if not law_set:
+        await update.message.reply_text("⚠️ Законів у шпорі не виявлено.")
+        return
+    laws = sorted(law_set)
+    reply = "📘 <b>Список законів:</b>
+" + "
+".join(f"• {law}" for law in laws)
+    await update.message.reply_text(reply, parse_mode="HTML")
+
+
 # Налаштування логів
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+app = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+
+app.add_handler(CommandHandler("topics", topics_command))
+app.add_handler(CommandHandler("practice", practice_command))
+app.add_handler(CommandHandler("laws", laws_command))
+app.add_handler(CallbackQueryHandler(handle_topic_callback))
 
 # Команда /topics
 async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -117,7 +139,4 @@ async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TY
         reply = f"""❓ <b>{data['питання']}</b>
 
 ✅ {data['відповідь']}"""
-        if data['закони']:      
-          reply += f"
-
-📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
+        
