@@ -33,7 +33,7 @@ async def laws_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     laws = sorted(law_set)
     reply = "📘 <b>Список законів:</b>
 " + "
-".join(f"• {law}" for law in laws)
+".join([f"• {law}" for law in laws])
     await update.message.reply_text(reply, parse_mode="HTML")
 
 
