@@ -22,10 +22,22 @@ with open("tdp_answers_full_structured.json", "r", encoding="utf-8") as f1, \
 # Список ключів
 keys = list(answers.keys())
 
+
+
+
 # Налаштування логів
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+app = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+
+app.add_handler(CommandHandler("topics", topics_command))
+app.add_handler(CommandHandler("practice", practice_command))
+
+app.add_handler(CallbackQueryHandler(handle_topic_callback))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+# Команда /topics
 async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["topics_page"] = 0
     await send_topics_page(update, context)
@@ -54,6 +66,7 @@ async def send_topics_page(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.callback_query:
         await update.callback_query.edit_message_text("Оберіть тему з шпори:", reply_markup=markup)
 
+# Команда /practice — показує практичні завдання
 async def practice_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["practice_page"] = 0
     await send_practice_page(update, context)
@@ -82,6 +95,25 @@ async def send_practice_page(update: Update, context: ContextTypes.DEFAULT_TYPE)
     elif update.callback_query:
         await update.callback_query.edit_message_text("Оберіть практичне завдання:", reply_markup=markup)
 
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_input = update.message.text.lower().strip()
+    matches = difflib.get_close_matches(user_input, keys, n=1, cutoff=0.8)
+
+    if matches:
+        key = matches[0]
+        data = answers[key]
+        reply = f"""❓ <b>{data['питання']}</b>
+
+✅ {data['відповідь']}"""
+        if data['закони']:
+            reply += f"
+
+📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
+        await update.message.reply_text(reply, parse_mode='HTML')
+    else:
+        await update.message.reply_text("⚠️ Не знайдено точної теми. Спробуйте сформулювати інакше або скористайтесь /topics")
+
+# Додати підтримку пагінації для кнопок
 async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -102,6 +134,10 @@ async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data["topics_page"] = max(context.user_data.get("topics_page", 0) - 1, 0)
         await send_topics_page(update, context)
         return
+    elif query.data == "practice_prev":
+        context.user_data["practice_page"] = max(context.user_data.get("practice_page", 0) - 1, 0)
+        await send_practice_page(update, context)
+        return
 
     try:
         index = int(query.data)
@@ -110,58 +146,9 @@ async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TY
         reply = f"""❓ <b>{data['питання']}</b>
 
 ✅ {data['відповідь']}"""
-        
         if data['закони']:
-            reply += f"\n\n📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
-        
-        await query.edit_message_text(reply, parse_mode='HTML')
-    except (ValueError, IndexError):
-        await query.edit_message_text("Помилка: не вдалося знайти відповідь")
+            reply += f"
 
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_input = update.message.text
-    
-    # Пошук найбільш схожого запитання
-    matches = difflib.get_close_matches(user_input, keys, n=1, cutoff=0.5)
-    
-    if matches:
-        key = matches[0]
-        data = answers[key]
-        reply = f"""❓ <b>{data['питання']}</b>
+📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
 
-✅ {data['відповідь']}"""
-        
-        if data['закони']:
-            reply += f"\n\n📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
-        
-        await update.message.reply_text(reply, parse_mode='HTML')
-    else:
-        # Якщо не знайдено у базі, використовуємо GPT
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_input}
-                ]
-            )
-            answer = response.choices[0].message.content
-            await update.message.reply_text(answer)
-        except Exception as e:
-            logger.error(f"Error in GPT request: {e}")
-            await update.message.reply_text("Не вдалося знайти відповідь у базі та згенерувати її через GPT.")
-
-def main():
-    app = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
-
-    # Додавання обробників
-    app.add_handler(CommandHandler("topics", topics_command))
-    app.add_handler(CommandHandler("practice", practice_command))
-    app.add_handler(CallbackQueryHandler(handle_topic_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-    # Запуск бота
-    app.run_polling()
-
-if __name__ == "__main__":
-    main()
+📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"        
