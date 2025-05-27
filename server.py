@@ -22,20 +22,11 @@ with open("tdp_answers_full_structured.json", "r", encoding="utf-8") as f1, \
 # Список ключів
 keys = list(answers.keys())
 
-
-
-
 # Налаштування логів
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
-
-app.add_handler(CommandHandler("topics", topics_command))
-app.add_handler(CommandHandler("practice", practice_command))
-
-app.add_handler(CallbackQueryHandler(handle_topic_callback))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
 # Команда /topics
 async def topics_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -105,10 +96,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = f"""❓ <b>{data['питання']}</b>
 
 ✅ {data['відповідь']}"""
-        if data['закони']:
-            reply += f"
-
-📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
+        
+        if 'закони' in data and data['закони']:
+            reply += f"\n\n📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
+        
         await update.message.reply_text(reply, parse_mode='HTML')
     else:
         await update.message.reply_text("⚠️ Не знайдено точної теми. Спробуйте сформулювати інакше або скористайтесь /topics")
@@ -134,10 +125,6 @@ async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data["topics_page"] = max(context.user_data.get("topics_page", 0) - 1, 0)
         await send_topics_page(update, context)
         return
-    elif query.data == "practice_prev":
-        context.user_data["practice_page"] = max(context.user_data.get("practice_page", 0) - 1, 0)
-        await send_practice_page(update, context)
-        return
 
     try:
         index = int(query.data)
@@ -146,9 +133,19 @@ async def handle_topic_callback(update: Update, context: ContextTypes.DEFAULT_TY
         reply = f"""❓ <b>{data['питання']}</b>
 
 ✅ {data['відповідь']}"""
-        if data['закони']:
-            reply += f"
+        
+        if 'закони' in data and data['закони']:
+            reply += f"\n\n📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
+        
+        await query.edit_message_text(reply, parse_mode='HTML')
+    except (ValueError, IndexError):
+        await query.edit_message_text("Помилка: не вдалося знайти відповідь.")
 
-📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"
+# Додавання обробників команд
+app.add_handler(CommandHandler("topics", topics_command))
+app.add_handler(CommandHandler("practice", practice_command))
+app.add_handler(CallbackQueryHandler(handle_topic_callback))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-📘 <b>Закон(и):</b> {'; '.join(data['закони'])}"        
+if __name__ == "__main__":
+    app.run_polling()
